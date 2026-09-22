@@ -54,11 +54,21 @@ export function createHelloServer() {
   // connection when nothing listens there — the right answer from a server that
   // is not a proxy, and why this file needs no case for it.
   return createServer((req, res) => {
-    // `req.url` is not a whole address: a request line carries only the part
-    // after the host, something like `/hello?name=x`. `URL` is the parser the
-    // platform already provides, and it needs a complete address to resolve
-    // that fragment of one against — which is all the second argument is for.
-    // Only the pathname is read here, so the host named there never matters.
+    // `req.url` is the request target, copied straight off the request line,
+    // and it arrives in one of two shapes: the bare path an ordinary request
+    // sends (`/hello?name=x`), or the whole address a request relayed through
+    // a proxy sends (`http://example.com/hello`), which a server is obliged to
+    // accept. `URL` is the parser the platform already provides and it needs a
+    // whole address, so a bare path is joined onto a stand-in origin to make
+    // one; a target that is already an address is parsed as it stands.
+    //
+    // Joining the text rather than resolving it against a base URL is the
+    // point of that split. Resolved against a base, a target opening with `//`
+    // is read as naming a host, so the client rather than this file would
+    // decide which characters became the path: `//example.com/hello` would
+    // arrive here as `/hello` and reach the handler. Joined on, that target
+    // keeps the pathname it actually has, `//example.com/hello`, which is not
+    // the one path this service serves — so it is not found.
     //
     // Reading the pathname is what makes a query string a non-issue:
     // `/hello?name=x` has the pathname `/hello`, so this service ignores a
@@ -68,11 +78,14 @@ export function createHelloServer() {
     //
     // `URL.parse` is that same parser in the form that returns `null` instead
     // of throwing. A request target arrives straight off the network and need
-    // not be a valid address at all (`//` promises a host and then names
-    // none), and an exception raised in here would end the process rather than
-    // the request — so an unparseable target leaves `pathname` undefined and
-    // falls through to the `404` below, which is the right answer for it.
-    const pathname = URL.parse(req.url, 'http://localhost')?.pathname;
+    // not be an address at all (`OPTIONS *` sends exactly `*`), and an
+    // exception raised in here would end the process rather than the request —
+    // so an unparseable target leaves `pathname` undefined and falls through to
+    // the `404` below, which is the right answer for it.
+    const url = req.url.startsWith('/')
+      ? URL.parse(`http://localhost${req.url}`)
+      : URL.parse(req.url);
+    const pathname = url?.pathname;
 
     // The path is checked before the method. That order is what makes
     // `POST /nope` a `404` rather than a `405`: a path this service does not

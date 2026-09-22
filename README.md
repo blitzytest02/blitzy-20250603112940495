@@ -1,6 +1,6 @@
 # hello-world-node-tutorial
 
-The smallest complete Node.js HTTP server: one endpoint, zero dependencies, and about sixty lines of code written to be read end to end in a few minutes. That one endpoint is the whole of the contract:
+The smallest complete Node.js HTTP server: one endpoint, zero dependencies, and under a hundred lines of code written to be read end to end in a few minutes. That one endpoint is the whole of the contract:
 
 | Method | Path | Status | Content-Type | Body |
 | --- | --- | --- | --- | --- |
@@ -47,13 +47,14 @@ npm start
 That runs `node src/index.js` and prints:
 
 ```text
+
 > hello-world-node-tutorial@1.0.0 start
 > node src/index.js
 
 Server running at http://127.0.0.1:3000/hello
 ```
 
-The last line is the application's entire output, with `3000` replaced by whatever port was resolved. The two lines beginning with `>` come from npm itself, announcing the script it is about to run; they are not produced by this code.
+The last line is the application's entire output, with `3000` replaced by whatever port was resolved. Everything above it comes from npm itself, which frames its banner with blank lines: the empty line the block opens with, then the two lines beginning with `>` announcing the script it is about to run, then the empty line that closes the banner. None of that is produced by this code.
 
 The process now stays alive waiting for requests instead of finishing. Leave it running and open a second terminal for the next step.
 
@@ -120,7 +121,7 @@ and exits cleanly. Do this rather than take it on trust: releasing the port on t
 
 Six files besides this one, and each carries a single idea.
 
-**`src/index.js`** — how a Node.js process reads its configuration and starts listening. It resolves the port from `process.env.PORT` with a default of `3000`, binds `127.0.0.1`, and logs the startup line with the *resolved* port interpolated, so an override such as `PORT=8080` is reflected in the address you are told to open. It also handles the two events that bracket a server's life: a port that cannot be claimed (reported as a readable sentence instead of a stack trace) and a shutdown signal. `listen` is the call that makes this a server rather than a script — the process stops running off the end of the file and waits for connections instead.
+**`src/index.js`** — how a Node.js process reads its configuration and starts listening. It resolves the port from `process.env.PORT` with a default of `3000`, checks that what came back is a port a socket can actually be bound to before it binds anything, binds `127.0.0.1`, and logs the startup line with the port the server *actually bound* interpolated, so an override such as `PORT=8080` is reflected in the address you are told to open. It also handles the two events that bracket a server's life: a port that cannot be claimed (reported as a readable sentence instead of a stack trace) and a shutdown signal. `listen` is the call that makes this a server rather than a script — the process stops running off the end of the file and waits for connections instead.
 
 **`src/server.js`** — how a server is created, and how a request is matched to a handler. `createServer`, from the built-in `node:http` module, takes one listener function and calls it once per incoming request. It reads the pathname out of `req.url` with the `URL` parser the platform already provides — which is what drops a query string for you, while keeping a trailing slash — and routes `GET` and `HEAD` on `/hello` or `/hello/` to the handler. It exports `createHelloServer()`, a function that returns a configured `http.Server` which is deliberately **not** listening, so the entry point can choose the real port and the test suite can choose an ephemeral one. The `404` and `405` replies live here, with the dispatcher's decision, rather than with the endpoint: they describe a request this server declined to route, not anything `/hello` does. A framework such as Express would supply a default `404` of its own; with core `node:http` there is no framework to defer to, so the answer is written out where you can read it.
 

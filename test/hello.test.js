@@ -113,16 +113,23 @@ describe('HEAD /hello', () => {
 
 describe('requests this service does not serve', () => {
   it('answers 404 Not Found for a path other than /hello', async () => {
-    const response = await fetch(`${baseUrl}/nope`);
-    const body = await response.text();
+    // The same four assertions are made over two unserved paths. `//x/hello`
+    // is the second because it is three path segments — `''`, `'x'` and
+    // `'hello'` — so it is simply a path this service does not serve, and the
+    // dispatcher has to read it as the path it is rather than as a host
+    // followed by `/hello`, which would reach the handler.
+    for (const path of ['/nope', '//x/hello']) {
+      const response = await fetch(`${baseUrl}${path}`);
+      const body = await response.text();
 
-    assert.equal(response.status, 404);
-    assert.equal(
-      response.headers.get('content-type'),
-      'text/plain; charset=utf-8'
-    );
-    assert.equal(response.headers.get('content-length'), '9');
-    assert.equal(body, 'Not Found');
+      assert.equal(response.status, 404);
+      assert.equal(
+        response.headers.get('content-type'),
+        'text/plain; charset=utf-8'
+      );
+      assert.equal(response.headers.get('content-length'), '9');
+      assert.equal(body, 'Not Found');
+    }
   });
 
   it('answers 405 on /hello for a method other than GET or HEAD', async () => {
