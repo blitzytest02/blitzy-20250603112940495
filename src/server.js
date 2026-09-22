@@ -8,9 +8,9 @@
  * HTTP.
  *
  * This file does one job: build the server, and decide which requests reach
- * the `/hello` handler. Everything it does not recognise it answers itself,
- * with the `404` and the `405` written out further down — both belong to the
- * decision made here rather than to the endpoint.
+ * the `/hello` handler. Everything it is handed and does not recognise it
+ * answers itself, with the `404` and the `405` written out further down — both
+ * belong to the decision made here rather than to the endpoint.
  */
 
 import { createServer } from 'node:http';
@@ -40,6 +40,19 @@ export function createHelloServer() {
   // writable stream for the response travelling back to the client. Until
   // something calls `listen` on the server returned here, no connection is
   // accepted and this listener never runs.
+  //
+  // It is registered for one event: the server's `request` event, where
+  // ordinary HTTP requests are delivered — so the decision below is this
+  // service's entire answer to them. An upgrade handshake, which asks to switch
+  // from HTTP to a protocol like WebSocket, is offered to a separate `upgrade`
+  // event first; registering no listener there declines the switch, and the
+  // request arrives here as the plain `GET` it also is.
+  //
+  // `CONNECT` alone never arrives here. It asks a proxy for a tunnel and names
+  // a host and port rather than a path, so there is no `/hello` for it to
+  // match; Node.js routes it to its own `connect` event and closes the
+  // connection when nothing listens there — the right answer from a server that
+  // is not a proxy, and why this file needs no case for it.
   return createServer((req, res) => {
     // `req.url` is not a whole address: a request line carries only the part
     // after the host, something like `/hello?name=x`. `URL` is the parser the
