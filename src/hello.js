@@ -18,15 +18,14 @@
  * 11 bytes. The test suite asserts the literal `'Hello world'` rather than
  * importing this constant, so editing the text here fails the tests instead of
  * quietly redefining the contract.
- *
- * @type {string}
  */
 export const HELLO_BODY = 'Hello world';
 
 /**
  * Writes the complete `200 OK` response for the `/hello` endpoint: status,
- * headers and body, with the response finished before it returns. Nothing
- * further happens for that request.
+ * headers and body, then calls `res.end()` to signal that no more response
+ * data will be written. That written response is the whole result: the
+ * function itself returns nothing.
  *
  * @param {import('node:http').IncomingMessage} req The incoming request Node
  *   created: a readable stream carrying the method, URL and headers. This
@@ -36,7 +35,6 @@ export const HELLO_BODY = 'Hello world';
  *   a framework such as Express would pass you.
  * @param {import('node:http').ServerResponse} res The response to write: a
  *   writable stream back to the client.
- * @returns {void}
  */
 export function handleHello(req, res) {
   // An HTTP response travels in order: status line, then headers, then body.
@@ -53,8 +51,10 @@ export function handleHello(req, res) {
     'Content-Length': Buffer.byteLength(HELLO_BODY),
   });
 
-  // `res` is a stream, and `end` writes this last piece of data and then
-  // closes the response, which is the point at which the client receives it.
+  // `res` is a writable stream, and `end(HELLO_BODY)` supplies the final body
+  // data and signals that no more data will be written. That is not the same
+  // as the client having received it: delivery may complete after this
+  // handler has returned.
   // No `HEAD` branch is needed: on a `HEAD` request Node keeps the status and
   // headers and discards the body, so this single handler serves `GET` and
   // `HEAD` identically.
