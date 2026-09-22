@@ -1,7 +1,7 @@
 # Installed packages: npm can always recreate this directory.
 node_modules/
 
-# Log npm writes into the project directory when a command fails.
+# Debug logs: npm keeps these in its cache's _logs, but ignore any that land here.
 npm-debug.log*
 
 # Nothing to lock (zero dependencies), so an accidental install stays untracked.

@@ -1,8 +1,6 @@
 # hello-world-node-tutorial
 
-The smallest complete Node.js HTTP server: one endpoint, zero dependencies, and about sixty lines of code written to be read end to end in a few minutes.
-
-## The one endpoint
+The smallest complete Node.js HTTP server: one endpoint, zero dependencies, and about sixty lines of code written to be read end to end in a few minutes. That one endpoint is the whole of the contract:
 
 | Method | Path | Status | Content-Type | Body |
 | --- | --- | --- | --- | --- |
@@ -13,7 +11,7 @@ The body is exactly `Hello world` — capital `H`, lowercase `w`, one space, no 
 Everything else follows from that single route, and this server answers all of it itself:
 
 - `/hello/`, the same path with a trailing slash, returns the identical response, so a slash typed into a browser is not a dead end.
-- A query string is ignored: `/hello?name=x` matches `/hello`, because matching is done on the parsed pathname.
+- A query string is ignored: `/hello?name=x` matches `/hello`, because the query is stripped from the request target before the path is matched. The two spellings above are matched exactly as they arrive, so a target that only *resolves* to `/hello` — `/a/../hello`, say, or `//example.test/hello` — is not served.
 - `HEAD /hello` returns the same status and headers with an empty body.
 - Any other path, `/` included, returns `404 Not Found`.
 - Any other method on `/hello` returns `405 Method Not Allowed` with an `Allow: GET, HEAD` header.
@@ -34,7 +32,9 @@ One consequence to state plainly: **Node.js 25 has reached end of life and shoul
 
 ## Install — there is no install step
 
-Nothing needs installing. This project has zero runtime dependencies and zero development dependencies: `package.json` carries no `dependencies` block and no `devDependencies` block at all. Cloning the repository is the whole of the setup.
+Nothing needs installing. This project has zero runtime dependencies and zero development dependencies: `package.json` carries no `dependencies` block and no `devDependencies` block at all.
+
+There is nothing to configure either, and that is worth stating plainly rather than leaving you to infer it: **no environment file, no database and no external service is required** for `npm start` to succeed. The one variable the server reads, `PORT`, carries a working default of `3000`, so there is nothing to set before the first run. Cloning the repository is the whole of the setup.
 
 Running `npm install` anyway is not an error, merely pointless — but it does write a `package-lock.json` into your working directory. `.gitignore` keeps that file out of version control, so it stays a local artefact and never becomes part of the repository.
 
@@ -122,7 +122,7 @@ Six files besides this one, and each carries a single idea.
 
 **`src/index.js`** — how a Node.js process reads its configuration and starts listening. It resolves the port from `process.env.PORT` with a default of `3000`, binds `127.0.0.1`, and logs the startup line with the *resolved* port interpolated, so the address printed is always the address actually bound. It also handles the two events that bracket a server's life: a port that cannot be claimed (reported as a readable sentence instead of a stack trace) and a shutdown signal. `listen` is the call that makes this a server rather than a script — the process stops running off the end of the file and waits for connections instead.
 
-**`src/server.js`** — how a server is created, and how a request is matched to a handler. `createServer`, from the built-in `node:http` module, takes one listener function and calls it once per incoming request. This file parses the pathname out of `req.url` and routes `GET` and `HEAD` on `/hello` or `/hello/` to the handler. It exports a server that is deliberately **not** listening, which is what lets the entry point choose the real port and the test suite choose an ephemeral one. The `404` and `405` replies live here, with the dispatcher's decision, rather than with the endpoint: they describe a request this server declined to route, not anything `/hello` does. A framework such as Express would supply a default `404` of its own; with core `node:http` there is no framework to defer to, so the answer is written out where you can read it.
+**`src/server.js`** — how a server is created, and how a request is matched to a handler. `createServer`, from the built-in `node:http` module, takes one listener function and calls it once per incoming request. This file matches the request target in `req.url` — the raw path, with any query string stripped — and routes `GET` and `HEAD` on `/hello` or `/hello/` to the handler; a URL parse is used only to prove the target arrived canonical, so a path the parser would have to tidy up is declined rather than served. It exports `createHelloServer()`, a function that returns a configured `http.Server` which is deliberately **not** listening, so the entry point can choose the real port and the test suite can choose an ephemeral one. The `404` and `405` replies live here, with the dispatcher's decision, rather than with the endpoint: they describe a request this server declined to route, not anything `/hello` does. A framework such as Express would supply a default `404` of its own; with core `node:http` there is no framework to defer to, so the answer is written out where you can read it.
 
 **`src/hello.js`** — what a handler does with `req` and `res`. Node hands every handler those two objects: the request that arrived, and a writable stream for the response travelling back. The handler writes the status and headers first, with `writeHead`, and the body last, with `res.end`, because that is the order an HTTP response travels in. It states `Content-Length` explicitly — told nothing, Node frames the body with chunked transfer encoding, and supplying the length is what makes the `curl -i` output above exactly what you see. There is no `HEAD` branch anywhere in the project: Node.js keeps the status and headers of a `HEAD` response and discards the body, so one handler serves both methods. That is a property of the runtime rather than code written here, which is why the suite asserts it instead of assuming it.
 
