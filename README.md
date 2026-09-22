@@ -1,2 +1,183 @@
-# blitzy-20250603112940495 test
-Auto-created public repository with README test
+# hello-world-node-tutorial
+
+The smallest complete Node.js HTTP server: one endpoint, zero dependencies, and about sixty lines of code written to be read end to end in a few minutes.
+
+## The one endpoint
+
+| Method | Path | Status | Content-Type | Body |
+| --- | --- | --- | --- | --- |
+| `GET` | `/hello` | `200` | `text/plain; charset=utf-8` | `Hello world` |
+
+The body is exactly `Hello world` — capital `H`, lowercase `w`, one space, no punctuation — and it carries **no trailing newline**, so it is exactly 11 bytes and the response states `Content-Length: 11`.
+
+Everything else follows from that single route, and this server answers all of it itself:
+
+- `/hello/`, the same path with a trailing slash, returns the identical response, so a slash typed into a browser is not a dead end.
+- A query string is ignored: `/hello?name=x` matches `/hello`, because matching is done on the parsed pathname.
+- `HEAD /hello` returns the same status and headers with an empty body.
+- Any other path, `/` included, returns `404 Not Found`.
+- Any other method on `/hello` returns `405 Method Not Allowed` with an `Allow: GET, HEAD` header.
+
+## Prerequisites
+
+**Node.js 24 LTS** — the line this project is tested on, reference build v24.21.0 — or the current LTS line. Check what you have:
+
+```bash
+node --version
+```
+
+**npm**, which ships with Node.js. There is nothing else to install.
+
+Two statements about the runtime are easy to run together, so it is worth separating them. `package.json` declares `"engines": { "node": ">=24.0.0" }`, and that is a *minimum-engine floor*: the oldest runtime that may run this project, and nothing more. The *tested and supported* runtime is the Node.js 24 LTS line alone — that is where every command and every output in this file was verified. Later majors are permitted by the floor but untested; they are expected to work, because the code uses only core APIs (`node:http`, `node:test`, the WHATWG `URL` class and the global `fetch`), but that is an expectation rather than a guarantee.
+
+One consequence to state plainly: **Node.js 25 has reached end of life and should not be used**, even though the floor admits it. Install an LTS line instead.
+
+## Install — there is no install step
+
+Nothing needs installing. This project has zero runtime dependencies and zero development dependencies: `package.json` carries no `dependencies` block and no `devDependencies` block at all. Cloning the repository is the whole of the setup.
+
+Running `npm install` anyway is not an error, merely pointless — but it does write a `package-lock.json` into your working directory. `.gitignore` keeps that file out of version control, so it stays a local artefact and never becomes part of the repository.
+
+## Start
+
+```bash
+npm start
+```
+
+That runs `node src/index.js` and prints:
+
+```text
+> hello-world-node-tutorial@1.0.0 start
+> node src/index.js
+
+Server running at http://127.0.0.1:3000/hello
+```
+
+The last line is the application's entire output, with `3000` replaced by whatever port was resolved. The two lines beginning with `>` come from npm itself, announcing the script it is about to run; they are not produced by this code.
+
+The process now stays alive waiting for requests instead of finishing. Leave it running and open a second terminal for the next step.
+
+## Verify
+
+```bash
+curl -i http://localhost:3000/hello
+```
+
+```text
+HTTP/1.1 200 OK
+Content-Type: text/plain; charset=utf-8
+Content-Length: 11
+Date: <RFC 7231 date>
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+Hello world
+```
+
+Four things worth knowing about that output:
+
+- `Date`, `Connection` and `Keep-Alive` are emitted by Node.js itself and are **not** part of the contract this project asserts. The asserted headers are `Content-Type` and `Content-Length`.
+- Because the body carries no trailing newline, your shell prompt returns on the same line as `Hello world`. That is expected, and not truncation.
+- On **Windows PowerShell 5.1**, `curl` is an alias for `Invoke-WebRequest` rather than the curl program, so the command there names the executable directly:
+
+```text
+curl.exe -i http://localhost:3000/hello
+```
+
+- Where `curl` is not installed at all, the same status, headers and body can be read with the runtime this project already requires:
+
+```bash
+node -e "fetch('http://localhost:3000/hello').then(async r => console.log(r.status, r.headers.get('content-type'), r.headers.get('content-length'), JSON.stringify(await r.text())))"
+```
+
+That prints:
+
+```text
+200 text/plain; charset=utf-8 11 "Hello world"
+```
+
+A browser pointed at `http://localhost:3000/hello` shows the same text. Treat it as a body-only smoke test: an address bar shows you the text but not the status line or the headers, so it cannot confirm the rest of the contract.
+
+## Test
+
+```bash
+npm test
+```
+
+That runs `node --test`, and the runner finds `test/hello.test.js` on its own because the name ends in `.test.js` — there is no test configuration file, and nothing was installed to make the tests run. The suite starts a server of its own on an ephemeral port, so it never collides with an `npm start` left running in another terminal, and it asserts the whole contract: the `/hello` success response with its status, `Content-Type` and `Content-Length`; the `/hello/` trailing-slash alias; `HEAD /hello` returning identical headers with an empty body; `404 Not Found` for an unknown path; and `405 Method Not Allowed` with `Allow: GET, HEAD` for `POST /hello`.
+
+## Stop
+
+Press **Ctrl-C** in the terminal running the server. It prints:
+
+```text
+Server stopped
+```
+
+and exits cleanly. Do this rather than take it on trust: releasing the port on the way out is what the signal handling in `src/index.js` is for, and watching it happen is the point of the exercise.
+
+## What each file teaches
+
+Six files besides this one, and each carries a single idea.
+
+**`src/index.js`** — how a Node.js process reads its configuration and starts listening. It resolves the port from `process.env.PORT` with a default of `3000`, binds `127.0.0.1`, and logs the startup line with the *resolved* port interpolated, so the address printed is always the address actually bound. It also handles the two events that bracket a server's life: a port that cannot be claimed (reported as a readable sentence instead of a stack trace) and a shutdown signal. `listen` is the call that makes this a server rather than a script — the process stops running off the end of the file and waits for connections instead.
+
+**`src/server.js`** — how a server is created, and how a request is matched to a handler. `createServer`, from the built-in `node:http` module, takes one listener function and calls it once per incoming request. This file parses the pathname out of `req.url` and routes `GET` and `HEAD` on `/hello` or `/hello/` to the handler. It exports a server that is deliberately **not** listening, which is what lets the entry point choose the real port and the test suite choose an ephemeral one. The `404` and `405` replies live here, with the dispatcher's decision, rather than with the endpoint: they describe a request this server declined to route, not anything `/hello` does. A framework such as Express would supply a default `404` of its own; with core `node:http` there is no framework to defer to, so the answer is written out where you can read it.
+
+**`src/hello.js`** — what a handler does with `req` and `res`. Node hands every handler those two objects: the request that arrived, and a writable stream for the response travelling back. The handler writes the status and headers first, with `writeHead`, and the body last, with `res.end`, because that is the order an HTTP response travels in. It states `Content-Length` explicitly — told nothing, Node frames the body with chunked transfer encoding, and supplying the length is what makes the `curl -i` output above exactly what you see. There is no `HEAD` branch anywhere in the project: Node.js keeps the status and headers of a `HEAD` response and discards the body, so one handler serves both methods. That is a property of the runtime rather than code written here, which is why the suite asserts it instead of assuming it.
+
+**`test/hello.test.js`** — how an HTTP route is tested without any extra tooling. The runner (`node:test`) and the assertions (`node:assert/strict`) are both part of Node.js. The suite binds port `0`, which is not a port but a request for any free one, reads back the port the operating system assigned, and issues real requests with the global `fetch`. It asserts the literal `'Hello world'` rather than importing the constant from `src/hello.js` — so editing that constant breaks the test instead of quietly redefining what the endpoint may return.
+
+**`package.json`** — what a manifest declares: the name and version npm echoes in its banner, `"type": "module"` (which is what makes `import` work in every file here), the `start` and `test` scripts, and the `engines` floor. Read it for what is absent as much as for what is present — there is no `dependencies` block and no `devDependencies` block. That emptiness is deliberate: nothing to install, nothing to lock, no third-party code to audit, and no module graph to load before the server starts.
+
+**`.gitignore`** — why `node_modules` never belongs in version control. It is generated rather than authored, it is large, and npm can recreate it from the manifest at any time, so committing it would put machine-specific installed output into your history. The same file excludes npm's debug logs and `package-lock.json`; with nothing to lock here, an accidental install leaves an untracked local file rather than an eighth tracked one.
+
+## Changing the port
+
+`PORT` is the one knob this project has, and the form depends on your shell. macOS and Linux shells:
+
+```bash
+PORT=8080 npm start
+```
+
+PowerShell:
+
+```text
+$env:PORT=8080; npm start
+```
+
+Windows `cmd`:
+
+```text
+set "PORT=8080" && npm start
+```
+
+Keep the quotes exactly as written in the `cmd` form: without them the value absorbs the space before `&&`, and the port is wrong.
+
+The startup line then names the port actually bound:
+
+```text
+Server running at http://127.0.0.1:8080/hello
+```
+
+and the whole contract is served on 8080.
+
+The host is not a knob. It is fixed at `127.0.0.1`, the loopback address — this machine talking to itself — so starting this server exposes nothing to your local network.
+
+## Where this tutorial stops
+
+This project is a teaching artefact for one reader on one machine. It has no TLS, no authentication, no authorisation, no rate limiting and no CORS headers, all absent by design for a local service that returns one public constant, and it has no deployment path.
+
+These are the concepts it deliberately does not teach, each of them a reasonable next step:
+
+- routing at scale, and router abstractions
+- middleware and request pipelines
+- template engines and server-rendered HTML
+- persistence and data modelling
+- authentication and authorisation
+- request validation
+- deployment, containers and process managers
+- TypeScript and build steps
+- clustering and load balancing
+
+Naming them is the point. This is where the project stops, so nothing above reads as forgotten.
