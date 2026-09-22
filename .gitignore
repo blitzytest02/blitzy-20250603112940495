@@ -1,0 +1,9 @@
+# Installed packages: npm can always recreate this directory.
+node_modules/
+
+# Log npm writes into the project directory when a command fails.
+npm-debug.log*
+
+# Nothing to lock (this project has zero dependencies), so the file npm
+# writes if you run an install stays local and untracked.
+package-lock.json
