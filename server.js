@@ -38,7 +38,7 @@ const INTERNAL_ERROR_BODY = 'Internal Server Error';
  * @type {Readonly<{[key: string]: (response: import('http').ServerResponse) => void}>}
  */
 const ROUTES = Object.freeze({
-  'GET /hello': (response) => sendText(response, 200, HELLO_BODY),
+  'GET /hello': (response) => sendText(response, 200, HELLO_BODY)
 });
 
 /**
@@ -54,7 +54,8 @@ function resolvePort(rawValue) {
   }
 
   // A digits-only test is the whole validation: it rejects a sign, a decimal point and
-  // surrounding whitespace, and it avoids parseInt coercion (Number('12abc') would be 12).
+  // surrounding whitespace, and it avoids parseInt coercion (parseInt('12abc', 10) is 12,
+  // while Number('12abc') is NaN).
   const isDigitsOnly = /^\d+$/.test(value);
   const port = isDigitsOnly ? Number(value) : NaN;
 
@@ -62,8 +63,8 @@ function resolvePort(rawValue) {
   // accepted range. The value is never clamped and never silently corrected.
   if (!isDigitsOnly || port < MIN_PORT || port > MAX_PORT) {
     console.error(
-      `Invalid PORT "${value}": expected an integer between 1024 and 65535, `
-      + `for example PORT=3000.`
+      `Invalid PORT "${value}": expected an integer between ${MIN_PORT} and ${MAX_PORT}, `
+      + `for example PORT=${DEFAULT_PORT}.`
     );
     return null;
   }
@@ -137,7 +138,8 @@ function handleRequest(request, response) {
   } catch (error) {
     // The runtime throws on invalid header names and values, so nothing here may reach
     // the client: the detail goes to the console and the response body stays fixed.
-    console.error(`Request handling failed: ${error.message}`);
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error(`Request handling failed: ${detail}`);
 
     if (response.headersSent) {
       // The headers are already on the wire, so a second writeHead would fail. Destroying
@@ -182,7 +184,7 @@ function startServer(port) {
     } else {
       console.error(
         `Cannot start the server on port ${port}: ${error.code} ${error.message}. Choose a free `
-        + `port between 1024 and 65535, for example: PORT=3001 node server.js`
+        + `port between ${MIN_PORT} and ${MAX_PORT}, for example: PORT=3001 node server.js`
       );
     }
 
@@ -204,7 +206,8 @@ function startServer(port) {
 }
 
 /**
- * Stop the server on SIGINT and let the process end with status 0.
+ * Stop the server on SIGINT and let the process end: with status 0 for a server that was
+ * serving, and with the status a fatal path already set rather than success.
  * @param {import('http').Server} server Server to close.
  * @param {Set<import('net').Socket>} sockets Open connections tracked by startServer.
  * @returns {void}
@@ -216,7 +219,10 @@ function shutdown(server, sockets) {
     // process.exit() is deliberately not called: the runtime documents that it can
     // truncate pending writes to stdout, which is where the shutdown line was just
     // written. Setting the exit code lets the event loop drain and exit cleanly.
-    process.exitCode = 0;
+    // A status a fatal path already set is left standing, never overwritten with 0.
+    if (process.exitCode === undefined) {
+      process.exitCode = 0;
+    }
   });
 
   // Destroying the tracked sockets keeps an idle keep-alive connection from holding the
