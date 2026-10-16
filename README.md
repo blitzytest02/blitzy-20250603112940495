@@ -45,6 +45,8 @@ Server listening on port 3000
 
 The server now stays in the foreground and prints one line for every request it receives until you stop it. Leave this terminal running and use a second terminal for the next section.
 
+While the server is running it accepts connections on every network interface of this machine, not only on the loopback address that `localhost` resolves to, so any other device that can reach this machine's IP address can reach the server too. That is exactly why every example in this walkthrough uses `localhost`. It is a local learning reference rather than a production service, so stop it with CTRL+C when you are finished and do not leave it running on a network you do not trust, such as a shared or public network or a cloud VM reachable from the internet.
+
 `npm start` prints a few banner lines of its own before the server's output, so its terminal looks like this:
 
 ```
