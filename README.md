@@ -17,7 +17,7 @@ Check your Node.js version with:
 node --version
 ```
 
-You should see something like `v22.23.3`; anything older than `v18.0.0` will not run this project.
+You should see something like `v22.23.3`. `package.json` declares the version this project requires as `"node": ">=18.0.0"`, so anything from `v18.0.0` upwards satisfies it.
 
 ## Installation
 
@@ -48,6 +48,7 @@ The server now stays in the foreground and prints one line for every request it 
 `npm start` prints a few banner lines of its own before the server's output, so its terminal looks like this:
 
 ```
+
 > nodejs-tutorial-hello-world@1.0.0 start
 > node server.js
 
@@ -189,7 +190,7 @@ One more line exists that you should not normally see:
 Request handling failed: <error message>
 ```
 
-If answering a request fails unexpectedly, the server writes that line to standard error and replies with `500 Internal Server Error` and the body `Internal Server Error`. The error text appears only in your terminal; the response never carries it.
+If answering a request fails unexpectedly, the server writes that line to standard error and replies with `500 Internal Server Error` and the body `Internal Server Error`. If the failure happens after the response headers have already gone out, there is nothing left to send safely, so the server ends the connection instead of writing a second response. The error text appears only in your terminal; the response never carries it.
 
 ## Shutting down
 
@@ -275,4 +276,4 @@ Any other failure to bind is reported in the same shape, with the runtime's own 
 Cannot start the server on port 3000: <code> <message>. Choose a free port between 1024 and 65535, for example: PORT=3001 node server.js
 ```
 
-Here `<code>` and `<message>` stand in for whatever the runtime reports for that failure, such as `EACCES permission denied`.
+Here `<code>` and `<message>` stand in for the runtime's own values for that failure. Node's message already repeats the code and names the system call and the address it could not bind, so the same code appears twice in the line: a failed listen reads something shaped `listen <CODE>: <description> <address>:<port>`, and the exact wording varies between Node.js versions. You do not have to predict it: the line prints in your terminal when the failure happens.
